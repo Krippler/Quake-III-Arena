@@ -11,7 +11,7 @@ The game data is not included.
 ## Highlights
 - Runs natively on X11 and Wayland, with PulseAudio / PipeWire sound.
 - Starts fullscreen at your desktop resolution.
-- Wide screens show more at the sides instead of a zoomed-in view (`r_widescreenFov 0` for the original behavior).
+- Wide screens show more at the sides instead of a zoomed-in view (`r_widescreenFov 0` for the original behavior), and the HUD keeps its proportions instead of being stretched (`cl_hudAspect 0` to stretch it).
 - The System Setup menu adds 16:9, 16:10 and ultrawide modes up to 5120x2880, plus "Desktop" and "Custom".
 - Console: `r_mode -2` sets the desktop resolution, `modelist` lists all modes, `vid_restart` applies changes, and Alt+Enter toggles fullscreen.
 - Includes the `q3ded.x86_64` dedicated server and native 64-bit game modules.
