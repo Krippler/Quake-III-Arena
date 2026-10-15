@@ -301,22 +301,51 @@ typedef struct
 static InitialVideoOptions_s	s_ivo;
 static graphicsoptions_t		s_graphicsoptions;	
 
+// the video mode list has the renderer's r_mode 0 to NUM_FIXED_MODES-1
+// followed by the desktop resolution (r_mode -2) and the custom
+// resolution (r_mode -1)
+#define NUM_FIXED_MODES		28
+#define MODE_INDEX_DESKTOP	NUM_FIXED_MODES
+#define MODE_INDEX_CUSTOM	( NUM_FIXED_MODES + 1 )
+
+static char customResolution[32];
+
+static int GraphicsOptions_ModeToIndex( int mode )
+{
+	if ( mode == -1 )
+		return MODE_INDEX_CUSTOM;
+	if ( mode < 0 || mode >= NUM_FIXED_MODES )
+		return MODE_INDEX_DESKTOP;
+	return mode;
+}
+
+static int GraphicsOptions_IndexToMode( int index )
+{
+	if ( index == MODE_INDEX_CUSTOM )
+		return -1;
+	if ( index < 0 || index >= NUM_FIXED_MODES )
+		return -2;
+	return index;
+}
+
+// the presets all use the desktop resolution, modern hardware has no
+// reason to drop the resolution for speed
 static InitialVideoOptions_s s_ivo_templates[] =
 {
 	{
-		4, qtrue, 2, 0, 2, 2, 1, 1, 0, qtrue	// JDC: this was tq 3
+		MODE_INDEX_DESKTOP, qtrue, 2, 0, 2, 2, 1, 1, 0, qtrue	// JDC: this was tq 3
 	},
 	{
-		3, qtrue, 2, 0, 0, 0, 1, 0, 0, qtrue
+		MODE_INDEX_DESKTOP, qtrue, 2, 0, 0, 0, 1, 0, 0, qtrue
 	},
 	{
-		2, qtrue, 1, 0, 1, 0, 0, 0, 0, qtrue
+		MODE_INDEX_DESKTOP, qtrue, 1, 0, 1, 0, 0, 0, 0, qtrue
 	},
 	{
-		2, qtrue, 1, 1, 1, 0, 0, 0, 0, qtrue
+		MODE_INDEX_DESKTOP, qtrue, 1, 1, 1, 0, 0, 0, 0, qtrue
 	},
 	{
-		3, qtrue, 1, 0, 0, 0, 1, 0, 0, qtrue
+		MODE_INDEX_DESKTOP, qtrue, 1, 0, 0, 0, 1, 0, 0, qtrue
 	}
 };
 
@@ -482,7 +511,7 @@ static void GraphicsOptions_ApplyChanges( void *unused, int notification )
 	}
 	trap_Cvar_SetValue( "r_picmip", 3 - s_graphicsoptions.tq.curvalue );
 	trap_Cvar_SetValue( "r_allowExtensions", s_graphicsoptions.allow_extensions.curvalue );
-	trap_Cvar_SetValue( "r_mode", s_graphicsoptions.mode.curvalue );
+	trap_Cvar_SetValue( "r_mode", GraphicsOptions_IndexToMode( s_graphicsoptions.mode.curvalue ) );
 	trap_Cvar_SetValue( "r_fullscreen", s_graphicsoptions.fs.curvalue );
 	trap_Cvar_Set( "r_glDriver", ( char * ) s_drivers[s_graphicsoptions.driver.curvalue] );
 	switch ( s_graphicsoptions.colordepth.curvalue )
@@ -631,11 +660,7 @@ GraphicsOptions_SetMenuItems
 */
 static void GraphicsOptions_SetMenuItems( void )
 {
-	s_graphicsoptions.mode.curvalue = trap_Cvar_VariableValue( "r_mode" );
-	if ( s_graphicsoptions.mode.curvalue < 0 )
-	{
-		s_graphicsoptions.mode.curvalue = 3;
-	}
+	s_graphicsoptions.mode.curvalue = GraphicsOptions_ModeToIndex( trap_Cvar_VariableValue( "r_mode" ) );
 	s_graphicsoptions.fs.curvalue = trap_Cvar_VariableValue("r_fullscreen");
 	s_graphicsoptions.allow_extensions.curvalue = trap_Cvar_VariableValue("r_allowExtensions");
 	s_graphicsoptions.tq.curvalue = 3-trap_Cvar_VariableValue( "r_picmip");
@@ -773,6 +798,24 @@ void GraphicsOptions_MenuInit( void )
 		"1600x1200",
 		"2048x1536",
 		"856x480 wide screen",
+		"1280x720 (16:9)",
+		"1280x800 (16:10)",
+		"1366x768 (16:9)",
+		"1440x900 (16:10)",
+		"1600x900 (16:9)",
+		"1680x1050 (16:10)",
+		"1920x1080 (16:9)",
+		"1920x1200 (16:10)",
+		"2560x1080 (21:9)",
+		"2560x1440 (16:9)",
+		"2560x1600 (16:10)",
+		"3440x1440 (21:9)",
+		"3840x1600 (24:10)",
+		"3840x2160 (16:9)",
+		"5120x1440 (32:9)",
+		"5120x2880 (16:9)",
+		"Desktop",
+		customResolution,
 		0
 	};
 	static const char *filter_names[] =
@@ -796,6 +839,9 @@ void GraphicsOptions_MenuInit( void )
 	};
 
 	int y;
+
+	Com_sprintf( customResolution, sizeof( customResolution ), "Custom %dx%d",
+		(int)trap_Cvar_VariableValue( "r_customwidth" ), (int)trap_Cvar_VariableValue( "r_customheight" ) );
 
 	// zero set all our globals
 	memset( &s_graphicsoptions, 0 ,sizeof(graphicsoptions_t) );

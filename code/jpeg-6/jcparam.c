@@ -153,7 +153,14 @@ add_huff_table (j_compress_ptr cinfo,
     *htblptr = jpeg_alloc_huff_table((j_common_ptr) cinfo);
   
   MEMCOPY((*htblptr)->bits, bits, SIZEOF((*htblptr)->bits));
-  MEMCOPY((*htblptr)->huffval, val, SIZEOF((*htblptr)->huffval));
+  {
+    /* only copy the symbols the table defines, val is shorter than huffval */
+    int i, nsymbols = 0;
+    for (i = 1; i <= 16; i++)
+      nsymbols += bits[i];
+    MEMZERO((*htblptr)->huffval, SIZEOF((*htblptr)->huffval));
+    MEMCOPY((*htblptr)->huffval, val, nsymbols * SIZEOF(UINT8));
+  }
 
   /* Initialize sent_table FALSE so table will be written to JPEG file. */
   (*htblptr)->sent_table = FALSE;

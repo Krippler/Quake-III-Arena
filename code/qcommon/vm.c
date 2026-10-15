@@ -66,7 +66,9 @@ VM_Init
 void VM_Init( void ) {
 	Cvar_Get( "vm_cgame", "2", CVAR_ARCHIVE );	// !@# SHIP WITH SET TO 2
 	Cvar_Get( "vm_game", "2", CVAR_ARCHIVE );	// !@# SHIP WITH SET TO 2
-	Cvar_Get( "vm_ui", "2", CVAR_ARCHIVE );		// !@# SHIP WITH SET TO 2
+	// the native ui module has the extra video modes in its menus, the
+	// engine falls back to vm/ui.qvm when uix86_64.so isn't installed
+	Cvar_Get( "vm_ui", "0", CVAR_ARCHIVE );
 
 	Cmd_AddCommand ("vmprofile", VM_VmProfile_f );
 	Cmd_AddCommand ("vminfo", VM_VmInfo_f );
@@ -324,24 +326,22 @@ Dlls will call this directly
  
 ============
 */
-int QDECL VM_DllSyscall( int arg, ... ) {
-#if ((defined __linux__) && (defined __powerpc__))
+intptr_t QDECL VM_DllSyscall( intptr_t arg, ... ) {
   // rcg010206 - see commentary above
-  int args[16];
+  // the original code took the address of arg and walked the stack, which
+  // only works with 32 bit cdecl; read the arguments portably instead
+  intptr_t args[MAX_VMSYSCALL_ARGS];
   int i;
   va_list ap;
   
   args[0] = arg;
   
   va_start(ap, arg);
-  for (i = 1; i < sizeof (args) / sizeof (args[i]); i++)
-    args[i] = va_arg(ap, int);
+  for (i = 1; i < MAX_VMSYSCALL_ARGS; i++)
+    args[i] = va_arg(ap, intptr_t);
   va_end(ap);
   
   return currentVM->systemCall( args );
-#else // original id code
-	return currentVM->systemCall( &arg );
-#endif
 }
 
 /*
@@ -362,7 +362,7 @@ vm_t *VM_Restart( vm_t *vm ) {
 	// DLL's can't be restarted in place
 	if ( vm->dllHandle ) {
 		char	name[MAX_QPATH];
-	    int			(*systemCall)( int *parms );
+	    intptr_t	(*systemCall)( intptr_t *parms );
 		
 		systemCall = vm->systemCall;	
 		Q_strncpyz( name, vm->name, sizeof( name ) );
@@ -432,7 +432,7 @@ it will attempt to load as a system dll
 
 #define	STACK_SIZE	0x20000
 
-vm_t *VM_Create( const char *module, int (*systemCalls)(int *), 
+vm_t *VM_Create( const char *module, intptr_t (*systemCalls)(intptr_t *), 
 				vmInterpret_t interpret ) {
 	vm_t		*vm;
 	vmHeader_t	*header;
@@ -541,10 +541,14 @@ vm_t *VM_Create( const char *module, int (*systemCalls)(int *),
 	// copy or compile the instructions
 	vm->codeLength = header->codeLength;
 
+#ifndef NO_VM_COMPILED
 	if ( interpret >= VMI_COMPILED ) {
 		vm->compiled = qtrue;
 		VM_Compile( vm, header );
-	} else {
+	} else
+#endif
+	{
+		// no JIT compiler for this architecture, always interpret
 		vm->compiled = qfalse;
 		VM_PrepareInterpreter( vm, header );
 	}
@@ -604,7 +608,7 @@ void VM_Clear(void) {
 	lastVM = NULL;
 }
 
-void *VM_ArgPtr( int intValue ) {
+void *VM_ArgPtr( intptr_t intValue ) {
 	if ( !intValue ) {
 		return NULL;
 	}
@@ -620,7 +624,7 @@ void *VM_ArgPtr( int intValue ) {
 	}
 }
 
-void *VM_ExplicitArgPtr( vm_t *vm, int intValue ) {
+void *VM_ExplicitArgPtr( vm_t *vm, intptr_t intValue ) {
 	if ( !intValue ) {
 		return NULL;
 	}
@@ -665,11 +669,12 @@ locals from sp
 #define	MAX_STACK	256
 #define	STACK_MASK	(MAX_STACK-1)
 
-int	QDECL VM_Call( vm_t *vm, int callnum, ... ) {
+intptr_t	QDECL VM_Call( vm_t *vm, int callnum, ... ) {
 	vm_t	*oldVM;
-	int		r;
+	intptr_t	r;
 	int i;
 	int args[16];
+	int vmArgs[17];
 	va_list ap;
 
 
@@ -685,23 +690,34 @@ int	QDECL VM_Call( vm_t *vm, int callnum, ... ) {
 	  Com_Printf( "VM_Call( %i )\n", callnum );
 	}
 
+	//rcg010207 -  see dissertation at top of VM_DllSyscall() in this file.
+	// VM_Call is always called with int arguments
+	va_start(ap, callnum);
+	for (i = 0; i < sizeof (args) / sizeof (args[i]); i++) {
+		args[i] = va_arg(ap, int);
+	}
+	va_end(ap);
+
 	// if we have a dll loaded, call it directly
 	if ( vm->entryPoint ) {
-		//rcg010207 -  see dissertation at top of VM_DllSyscall() in this file.
-		va_start(ap, callnum);
-		for (i = 0; i < sizeof (args) / sizeof (args[i]); i++) {
-			args[i] = va_arg(ap, int);
-		}
-		va_end(ap);
-
 		r = vm->entryPoint( callnum,  args[0],  args[1],  args[2], args[3],
                             args[4],  args[5],  args[6], args[7],
                             args[8],  args[9], args[10], args[11],
                             args[12], args[13], args[14], args[15]);
-	} else if ( vm->compiled ) {
-		r = VM_CallCompiled( vm, &callnum );
 	} else {
-		r = VM_CallInterpreted( vm, &callnum );
+		// the bytecode expects the call number followed by the arguments
+		vmArgs[0] = callnum;
+		for (i = 0; i < sizeof (args) / sizeof (args[i]); i++) {
+			vmArgs[i+1] = args[i];
+		}
+#ifndef NO_VM_COMPILED
+		if ( vm->compiled ) {
+			r = VM_CallCompiled( vm, vmArgs );
+		} else
+#endif
+		{
+			r = VM_CallInterpreted( vm, vmArgs );
+		}
 	}
 
 	if ( oldVM != NULL ) // bk001220 - assert(currentVM!=NULL) for oldVM==NULL
@@ -820,7 +836,7 @@ void VM_LogSyscalls( int *args ) {
 		f = fopen("syscalls.log", "w" );
 	}
 	callnum++;
-	fprintf(f, "%i: %i (%i) = %i %i %i %i\n", callnum, args - (int *)currentVM->dataBase,
+	fprintf(f, "%i: %i (%i) = %i %i %i %i\n", callnum, (int)(args - (int *)currentVM->dataBase),
 		args[0], args[1], args[2], args[3], args[4] );
 }
 

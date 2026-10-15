@@ -41,6 +41,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <windows.h>
 #include <gl/gl.h>
 
+#elif defined( USE_SDL )
+
+// the SDL build links directly against the system OpenGL library
+#include <GL/gl.h>
+
 #elif defined(MACOS_X)
 
 #include "macosx_glimp.h"
@@ -157,7 +162,7 @@ extern	void ( APIENTRY * qglUnlockArraysEXT) (void);
 //===========================================================================
 
 // non-windows systems will just redefine qgl* to gl*
-#if !defined( _WIN32 ) && !defined(MACOS_X) && !defined( __linux__ ) && !defined( __FreeBSD__ ) // rb010123
+#if defined( USE_SDL ) || ( !defined( _WIN32 ) && !defined(MACOS_X) && !defined( __linux__ ) && !defined( __FreeBSD__ ) ) // rb010123
 
 #include "qgl_linked.h"
 

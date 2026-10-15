@@ -56,7 +56,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "linux_local.h" // bk001204
 
 // Structure containing functions exported from refresh DLL
-refexport_t re;
 
 unsigned  sys_frame_time;
 
@@ -702,11 +701,11 @@ changed the load procedure to match VFS logic, and allow developer use
 extern char   *FS_BuildOSPath( const char *base, const char *game, const char *qpath );
 
 void *Sys_LoadDll( const char *name, char *fqpath ,
-                   int (**entryPoint)(int, ...),
-                   int (*systemcalls)(int, ...) ) 
+                   intptr_t (**entryPoint)(int, ...),
+                   intptr_t (*systemcalls)(intptr_t, ...) ) 
 {
   void *libHandle;
-  void  (*dllEntry)( int (*syscallptr)(int, ...) );
+  void  (*dllEntry)( intptr_t (*syscallptr)(intptr_t, ...) );
   char  curpath[MAX_OSPATH];
   char  fname[MAX_OSPATH];
   char  *basepath;
@@ -722,7 +721,11 @@ void *Sys_LoadDll( const char *name, char *fqpath ,
   assert( name );
 
   getcwd(curpath, sizeof(curpath));
-#if defined __i386__
+#if defined __x86_64__
+  snprintf (fname, sizeof(fname), "%sx86_64.so", name);
+#elif defined __aarch64__
+  snprintf (fname, sizeof(fname), "%saarch64.so", name);
+#elif defined __i386__
   snprintf (fname, sizeof(fname), "%si386.so", name);
 #elif defined __powerpc__   //rcg010207 - PPC support.
   snprintf (fname, sizeof(fname), "%sppc.so", name);
@@ -1145,10 +1148,12 @@ void Sys_AppActivate (void)
 {
 }
 
+#ifndef USE_SDL
 char *Sys_GetClipboardData(void)
 {
   return NULL;
 }
+#endif
 
 void  Sys_Print( const char *msg )
 {
@@ -1226,6 +1231,9 @@ int main ( int argc, char* argv[] )
   int   len, i;
   char  *cmdline;
   void Sys_SetDefaultCDPath(const char *path);
+  void Sys_SetDefaultInstallPath(const char *path);
+  char  exePath[MAX_OSPATH];
+  ssize_t exeLen;
 
   // go back to real user for config loads
   saved_euid = geteuid();
@@ -1233,7 +1241,21 @@ int main ( int argc, char* argv[] )
 
   Sys_ParseArgs( argc, argv );  // bk010104 - added this for support
 
-  Sys_SetDefaultCDPath(argv[0]);
+  // the game data is looked for next to the executable (fs_basepath) and
+  // in ~/.q3a (fs_homepath), whatever the current directory is
+  exeLen = readlink( "/proc/self/exe", exePath, sizeof( exePath ) - 1 );
+  if ( exeLen > 0 )
+  {
+    char *slash;
+
+    exePath[exeLen] = 0;
+    slash = strrchr( exePath, '/' );
+    if ( slash )
+    {
+      *slash = 0;
+      Sys_SetDefaultInstallPath( exePath );
+    }
+  }
 
   // merge the command line, this is kinda silly
   for (len = 1, i = 1; i < argc; i++)
