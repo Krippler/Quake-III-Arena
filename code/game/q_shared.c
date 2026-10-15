@@ -1069,7 +1069,9 @@ void Info_RemoveKey( char *s, const char *key ) {
 
 		if (!strcmp (key, pkey) )
 		{
-			strcpy (start, s);	// remove this part
+			// the strings overlap, strcpy is undefined for that and
+			// corrupts them with modern C libraries
+			memmove (start, s, strlen (s) + 1);	// remove this part
 			return;
 		}
 
@@ -1124,7 +1126,9 @@ void Info_RemoveKey_Big( char *s, const char *key ) {
 
 		if (!strcmp (key, pkey) )
 		{
-			strcpy (start, s);	// remove this part
+			// the strings overlap, strcpy is undefined for that and
+			// corrupts them with modern C libraries
+			memmove (start, s, strlen (s) + 1);	// remove this part
 			return;
 		}
 

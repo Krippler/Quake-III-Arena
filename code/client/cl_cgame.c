@@ -620,7 +620,8 @@ intptr_t CL_CgameSystemCalls( intptr_t *args ) {
 		Com_Memset( VMA(1), args[2], args[3] );
 		return 0;
 	case CG_MEMCPY:
-		Com_Memcpy( VMA(1), VMA(2), args[3] );
+		// memmove, the vm's memcpy may be called with overlapping buffers
+		memmove( VMA(1), VMA(2), args[3] );
 		return 0;
 	case CG_STRNCPY:
 		strncpy( VMA(1), VMA(2), args[3] );
