@@ -1146,9 +1146,20 @@ CL_InitUI
 void CL_InitUI( void ) {
 	int		v;
 	vmInterpret_t		interpret;
+	cvar_t	*cl_nativeUI;
+	fileHandle_t	f;
+
+	// the ui module built with this engine has the modern video modes in
+	// its menus, so prefer it over the pak's ui.qvm, also on pure servers
+	// (local games run with sv_pure 1).  It isn't found for mods, which
+	// then keep their own ui.qvm.  Set cl_nativeUI 0 for the old behavior.
+	cl_nativeUI = Cvar_Get( "cl_nativeUI", "1", CVAR_ARCHIVE );
 
 	// load the dll or bytecode
-	if ( cl_connectedToPureServer != 0 ) {
+	if ( cl_nativeUI->integer ) {
+		interpret = VMI_NATIVE;
+	}
+	else if ( cl_connectedToPureServer != 0 ) {
 		// if sv_pure is set we only allow qvms to be loaded
 		interpret = VMI_COMPILED;
 	}
@@ -1158,6 +1169,13 @@ void CL_InitUI( void ) {
 	uivm = VM_Create( "ui", CL_UISystemCalls, interpret );
 	if ( !uivm ) {
 		Com_Error( ERR_FATAL, "VM_Create on UI failed" );
+	}
+
+	// pure servers check that the client references the pak holding
+	// vm/ui.qvm, opening it marks the reference even when the native
+	// module was loaded instead
+	if ( cl_connectedToPureServer != 0 && FS_FOpenFileRead( "vm/ui.qvm", &f, qfalse ) >= 0 && f ) {
+		FS_FCloseFile( f );
 	}
 
 	// sanity check

@@ -66,9 +66,7 @@ VM_Init
 void VM_Init( void ) {
 	Cvar_Get( "vm_cgame", "2", CVAR_ARCHIVE );	// !@# SHIP WITH SET TO 2
 	Cvar_Get( "vm_game", "2", CVAR_ARCHIVE );	// !@# SHIP WITH SET TO 2
-	// the native ui module has the extra video modes in its menus, the
-	// engine falls back to vm/ui.qvm when uix86_64.so isn't installed
-	Cvar_Get( "vm_ui", "0", CVAR_ARCHIVE );
+	Cvar_Get( "vm_ui", "2", CVAR_ARCHIVE );		// !@# SHIP WITH SET TO 2 (see cl_nativeUI)
 
 	Cmd_AddCommand ("vmprofile", VM_VmProfile_f );
 	Cmd_AddCommand ("vminfo", VM_VmInfo_f );
