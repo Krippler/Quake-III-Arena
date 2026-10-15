@@ -49,7 +49,8 @@ the 3D view uses the full width.  Raise cg_fov to taste (e.g. cg_fov 110).
 
 Native modules
 --------------
-The menus load from baseq3/uix86_64.so (vm_ui 0) so the new video modes
-show up.  If an old q3config.cfg sets vm_ui 2, run "set vm_ui 0" once.
-Pure servers still use the QVMs from the pak files, which run in the
+The menus always load from baseq3/uix86_64.so, in the main menu and in
+game, so the new video modes show up.  This also works on pure servers.
+Set cl_nativeUI 0 to use the pak's ui.qvm instead.  The client and server
+game code still comes from the pak QVMs on pure servers, running in the
 bytecode interpreter.
