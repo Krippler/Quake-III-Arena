@@ -819,7 +819,8 @@ intptr_t SV_GameSystemCalls( intptr_t *args ) {
 		return 0;
 
 	case TRAP_MEMCPY:
-		Com_Memcpy( VMA(1), VMA(2), args[3] );
+		// memmove, the vm's memcpy may be called with overlapping buffers
+		memmove( VMA(1), VMA(2), args[3] );
 		return 0;
 
 	case TRAP_STRNCPY:

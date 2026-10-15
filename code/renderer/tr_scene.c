@@ -313,6 +313,20 @@ void RE_RenderScene( const refdef_t *fd ) {
 	tr.refdef.fov_x = fd->fov_x;
 	tr.refdef.fov_y = fd->fov_y;
 
+	// The game sets fov_x for the width of the view, so a wide screen
+	// shows less vertically than 4:3 and looks zoomed in.  Keep the
+	// vertical fov that the same fov_x gives at 4:3 and widen the
+	// horizontal one instead ("Hor+").  This is done here rather than in
+	// cgame so it also works with the pak's cgame.qvm and on pure servers.
+	// Views without the world (menu and HUD models) are left alone.
+	if ( r_widescreenFov->integer && !( fd->rdflags & RDF_NOWORLDMODEL ) &&
+		fd->height > 0 && fd->width * 3 > fd->height * 4 ) {
+		float	tanY = tan( fd->fov_x * M_PI / 360.0f ) * 0.75f;
+
+		tr.refdef.fov_y = atan( tanY ) * 360.0f / M_PI;
+		tr.refdef.fov_x = atan( tanY * fd->width / fd->height ) * 360.0f / M_PI;
+	}
+
 	VectorCopy( fd->vieworg, tr.refdef.vieworg );
 	VectorCopy( fd->viewaxis[0], tr.refdef.viewaxis[0] );
 	VectorCopy( fd->viewaxis[1], tr.refdef.viewaxis[1] );

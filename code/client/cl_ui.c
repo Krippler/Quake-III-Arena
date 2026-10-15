@@ -1039,7 +1039,8 @@ intptr_t CL_UISystemCalls( intptr_t *args ) {
 		return 0;
 
 	case UI_MEMCPY:
-		Com_Memcpy( VMA(1), VMA(2), args[3] );
+		// memmove, the vm's memcpy may be called with overlapping buffers
+		memmove( VMA(1), VMA(2), args[3] );
 		return 0;
 
 	case UI_STRNCPY:

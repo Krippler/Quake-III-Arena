@@ -44,8 +44,11 @@ From the console (~ key):
 
 Alt+Enter toggles fullscreen.  r_swapInterval 1 enables vsync.
 
-The HUD and menus are designed for 4:3 and get stretched on wide screens,
-the 3D view uses the full width.  Raise cg_fov to taste (e.g. cg_fov 110).
+On wide screens the 3D view keeps the vertical field of view of a 4:3
+screen and shows more at the sides ("Hor+"), so cg_fov 90 looks like it
+did on a 4:3 monitor instead of zoomed in.  r_widescreenFov 0 restores
+the original behavior.  The HUD and menus are designed for 4:3 and are
+still stretched to the screen width.
 
 Native modules
 --------------
