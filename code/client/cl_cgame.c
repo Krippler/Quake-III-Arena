@@ -407,6 +407,54 @@ static int	FloatAsInt( float f ) {
 
 /*
 ====================
+CL_HudAspect
+
+The cgame draws its HUD on a virtual 640x480 screen and scales x and y
+separately, which stretches it sideways on wide screens.  When
+cl_hudAspect is set, remap the cgame's 2D coordinates so the HUD keeps
+its 4:3 proportions, centered on the screen like the menus are.  Pictures
+covering the whole screen (loading screen, fades) still fill it.
+Doing it here also covers the pak's cgame.qvm and pure servers.
+
+Returns qfalse when the coordinates are left alone.
+====================
+*/
+static cvar_t	*cl_hudAspect;
+
+static qboolean CL_HudAspect( float *x, float *y, float *w, float *h ) {
+	float	vidWidth, vidHeight;
+	float	xScale, scale;
+	float	x640, w640, h480;
+
+	if ( !cl_hudAspect || !cl_hudAspect->integer ) {
+		return qfalse;
+	}
+
+	vidWidth = cls.glconfig.vidWidth;
+	vidHeight = cls.glconfig.vidHeight;
+	if ( vidHeight <= 0 || vidWidth * 3 <= vidHeight * 4 ) {
+		return qfalse;		// not wider than 4:3
+	}
+
+	xScale = vidWidth / 640.0f;
+	scale = vidHeight / 480.0f;
+
+	x640 = *x / xScale;
+	w640 = *w / xScale;
+	h480 = *h / scale;
+
+	// full screen pictures keep filling the screen
+	if ( w640 >= 600.0f && h480 >= 440.0f ) {
+		return qfalse;
+	}
+
+	*x = x640 * scale + ( vidWidth - 640.0f * scale ) * 0.5f;
+	*w = w640 * scale;
+	return qtrue;
+}
+
+/*
+====================
 CL_CgameSystemCalls
 
 The cgame module is making a system call
@@ -569,13 +617,35 @@ intptr_t CL_CgameSystemCalls( intptr_t *args ) {
 		re.AddAdditiveLightToScene( VMA(1), VMF(2), VMF(3), VMF(4), VMF(5) );
 		return 0;
 	case CG_R_RENDERSCENE:
-		re.RenderScene( VMA(1) );
+		{
+			refdef_t	*fd = VMA(1);
+
+			// 3D models in the HUD (heads, ammo, flags) follow the 2D layout,
+			// views of the world are left alone
+			if ( fd && ( fd->rdflags & RDF_NOWORLDMODEL ) ) {
+				refdef_t	adjusted = *fd;
+				float		x = fd->x, y = fd->y, w = fd->width, h = fd->height;
+
+				if ( CL_HudAspect( &x, &y, &w, &h ) ) {
+					adjusted.x = (int)( x + 0.5f );
+					adjusted.width = (int)( w + 0.5f );
+					re.RenderScene( &adjusted );
+					return 0;
+				}
+			}
+			re.RenderScene( fd );
+		}
 		return 0;
 	case CG_R_SETCOLOR:
 		re.SetColor( VMA(1) );
 		return 0;
 	case CG_R_DRAWSTRETCHPIC:
-		re.DrawStretchPic( VMF(1), VMF(2), VMF(3), VMF(4), VMF(5), VMF(6), VMF(7), VMF(8), args[9] );
+		{
+			float	x = VMF(1), y = VMF(2), w = VMF(3), h = VMF(4);
+
+			CL_HudAspect( &x, &y, &w, &h );
+			re.DrawStretchPic( x, y, w, h, VMF(5), VMF(6), VMF(7), VMF(8), args[9] );
+		}
 		return 0;
 	case CG_R_MODELBOUNDS:
 		re.ModelBounds( args[1], VMA(2), VMA(3) );
@@ -721,6 +791,9 @@ void CL_InitCGame( void ) {
 	vmInterpret_t		interpret;
 
 	t1 = Sys_Milliseconds();
+
+	// keep the HUD at 4:3 proportions on wide screens, 0 stretches it
+	cl_hudAspect = Cvar_Get( "cl_hudAspect", "1", CVAR_ARCHIVE );
 
 	// put away the console
 	Con_Close();
