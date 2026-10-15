@@ -76,6 +76,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "bg_lib.h"
 
+// the q3 virtual machine is a 32 bit target
+typedef int intptr_t;
+
 #else
 
 #include <assert.h>
@@ -87,6 +90,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <time.h>
 #include <ctype.h>
 #include <limits.h>
+#include <stdint.h>
 
 #endif
 
@@ -252,6 +256,10 @@ static inline float LittleFloat (const float l) { return FloatSwap(&l); }
 
 #ifdef __i386__
 #define	CPUSTRING	"linux-i386"
+#elif defined __x86_64__
+#define	CPUSTRING	"linux-x86_64"
+#elif defined __aarch64__
+#define	CPUSTRING	"linux-aarch64"
 #elif defined __axp__
 #define	CPUSTRING	"linux-alpha"
 #else
@@ -452,7 +460,7 @@ void *Hunk_AllocDebug( int size, ha_pref preference, char *label, char *file, in
 void *Hunk_Alloc( int size, ha_pref preference );
 #endif
 
-#ifdef __linux__
+#if defined(__linux__) && !defined(USE_SDL)
 // https://zerowing.idsoftware.com/bugzilla/show_bug.cgi?id=371
 // custom Snd_Memset implementation for glibc memset bug workaround
 void Snd_Memset (void* dest, const int val, const size_t count);

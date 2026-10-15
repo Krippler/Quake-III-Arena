@@ -1,0 +1,77 @@
+name: Linux build
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux-x86_64:
+    name: Linux x86_64 (portable)
+    # glibc is backwards compatible, so a binary built here also runs on
+    # rolling distributions with a newer glibc such as Arch and CachyOS
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libsdl2-dev libgl-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Package
+        run: |
+          set -e
+          PKG=quake3-linux-x86_64
+          cmake --install build --prefix "dist/$PKG"
+          cp dist/README-linux.txt "dist/$PKG/README.txt"
+          cp COPYING.txt "dist/$PKG/"
+          mkdir -p "dist/$PKG/baseq3"
+          cp dist/baseq3/PUT_PAK_FILES_HERE.txt "dist/$PKG/baseq3/"
+          tar -C dist -czf "dist/$PKG.tar.gz" "$PKG"
+          ls -l "dist/$PKG" "dist/$PKG/baseq3"
+          file "dist/$PKG/quake3.x86_64"
+
+      - name: Smoke test the dedicated server
+        run: |
+          # no game data here, the server must start and fail cleanly on the missing paks
+          out=$(timeout 20 ./dist/quake3-linux-x86_64/q3ded.x86_64 +quit 2>&1 || true)
+          echo "$out"
+          echo "$out" | grep -q "Q3 1.32b linux-x86_64"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quake3-linux-x86_64
+          path: dist/quake3-linux-x86_64.tar.gz
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/quake3-linux-x86_64.tar.gz
+
+  arch:
+    name: Arch Linux (CachyOS base) build check
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install dependencies
+        run: pacman -Syu --noconfirm --needed base-devel cmake ninja sdl2 mesa git
+
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build

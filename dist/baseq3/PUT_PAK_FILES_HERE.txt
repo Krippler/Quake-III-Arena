@@ -1,0 +1,5 @@
+Copy pak0.pk3 to pak8.pk3 from your Quake III Arena installation into this
+directory (or into ~/.q3a/baseq3).
+
+pak0.pk3 comes from the original CD / Steam / GOG release.
+pak1.pk3 to pak8.pk3 are the free 1.32 point release patch files.

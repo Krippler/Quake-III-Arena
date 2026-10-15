@@ -306,15 +306,10 @@ The module is making a system call
 ====================
 */
 //rcg010207 - see my comments in VM_DllSyscall(), in qcommon/vm.c ...
-#if ((defined __linux__) && (defined __powerpc__))
-#define VMA(x) ((void *) args[x])
-#else
 #define	VMA(x) VM_ArgPtr(args[x])
-#endif
+#define	VMF(x)	_vmf(args[x])
 
-#define	VMF(x)	((float *)args)[x]
-
-int SV_GameSystemCalls( int *args ) {
+intptr_t SV_GameSystemCalls( intptr_t *args ) {
 	switch( args[0] ) {
 	case G_PRINT:
 		Com_Printf( "%s", VMA(1) );
@@ -490,7 +485,7 @@ int SV_GameSystemCalls( int *args ) {
 	case BOTLIB_GET_CONSOLE_MESSAGE:
 		return SV_BotGetConsoleMessage( args[1], VMA(2), args[3] );
 	case BOTLIB_USER_COMMAND:
-		SV_ClientThink( &svs.clients[args[1]], VMA(2) );
+		SV_ClientThink( &svs.clients[(int)args[1]], VMA(2) );
 		return 0;
 
 	case BOTLIB_AAS_BBOX_AREAS:
@@ -828,7 +823,8 @@ int SV_GameSystemCalls( int *args ) {
 		return 0;
 
 	case TRAP_STRNCPY:
-		return (int)strncpy( VMA(1), VMA(2), args[3] );
+		strncpy( VMA(1), VMA(2), args[3] );
+		return args[1];
 
 	case TRAP_SIN:
 		return FloatAsInt( sin( VMF(1) ) );

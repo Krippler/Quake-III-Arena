@@ -45,8 +45,9 @@ int demo_protocols[] =
 #define DEF_COMHUNKMEGS "64"
 #define DEF_COMZONEMEGS "24"
 #else
-#define DEF_COMHUNKMEGS "56"
-#define DEF_COMZONEMEGS "16"
+// high resolution screenshots and 64 bit pointers need more room than 2002 did
+#define DEF_COMHUNKMEGS "128"
+#define DEF_COMZONEMEGS "24"
 #endif
 
 int		com_argc;
@@ -930,7 +931,8 @@ void *Z_TagMalloc( int size, int tag ) {
 	//
 	size += sizeof(memblock_t);	// account for size of block header
 	size += 4;					// space for memory trash tester
-	size = (size + 3) & ~3;		// align to 32 bit boundary
+	// align to 16 bytes like malloc, structures with long doubles need it on 64 bit
+	size = (size + 15) & ~15;
 	
 	base = rover = zone->rover;
 	start = base->prev;
@@ -1196,6 +1198,7 @@ Goals:
 typedef struct {
 	int		magic;
 	int		size;
+	int		pad[2];		// keeps the memory after the header 16 byte aligned
 } hunkHeader_t;
 
 typedef struct {
@@ -1527,7 +1530,7 @@ void Com_InitHunkMemory( void ) {
 		Com_Error( ERR_FATAL, "Hunk data failed to allocate %i megs", s_hunkTotal / (1024*1024) );
 	}
 	// cacheline align
-	s_hunkData = (byte *) ( ( (int)s_hunkData + 31 ) & ~31 );
+	s_hunkData = (byte *) ( ( (intptr_t)s_hunkData + 31 ) & ~31 );
 	Hunk_Clear();
 
 	Cmd_AddCommand( "meminfo", Com_Meminfo_f );
@@ -1747,7 +1750,8 @@ void *Hunk_AllocateTempMemory( int size ) {
 
 	Hunk_SwapBanks();
 
-	size = ( (size+3)&~3 ) + sizeof( hunkHeader_t );
+	// keep temp memory 16 byte aligned like malloc
+	size = ( (size+15)&~15 ) + sizeof( hunkHeader_t );
 
 	if ( hunk_temp->temp + hunk_permanent->permanent + size > s_hunkTotal ) {
 		Com_Error( ERR_DROP, "Hunk_AllocateTempMemory: failed on %i", size );
