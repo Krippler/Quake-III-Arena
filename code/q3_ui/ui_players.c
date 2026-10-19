@@ -736,7 +736,10 @@ void UI_DrawPlayer( float x, float y, float w, float h, playerInfo_t *pi, int ti
 	refdef.width = w;
 	refdef.height = h;
 
-	refdef.fov_x = (int)((float)refdef.width / 640.0f * 90.0f);
+	// use the width in the 640x480 menu space, not in pixels: at high
+	// resolutions the pixel width gave a very wide angle lens that drew
+	// the model huge and distorted
+	refdef.fov_x = (int)((float)refdef.width / uis.scale / 640.0f * 90.0f);
 	xx = refdef.width / tan( refdef.fov_x / 360 * M_PI );
 	refdef.fov_y = atan2( refdef.height, xx );
 	refdef.fov_y *= ( 360 / M_PI );

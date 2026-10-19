@@ -728,6 +728,13 @@ void RE_StretchRaw (int x, int y, int w, int h, int cols, int rows, const byte *
 	}
 	R_SyncRenderThread();
 
+	// 2D pictures queued before the cinematic (like the black fill that
+	// clears the sides of wide screens) are batched in tess and would only
+	// be drawn after, over the video; draw them now
+	if ( tess.numIndexes ) {
+		RB_EndSurface();
+	}
+
 	// we definately want to sync every frame for the cinematics
 	qglFinish();
 

@@ -1603,6 +1603,15 @@ void CIN_DrawCinematic (int handle) {
 	buf = cinTable[handle].buf;
 	SCR_AdjustFrom640( &x, &y, &w, &h );
 
+	// keep the 4:3 video proportions on wide screens, centered like the menus
+	if ( cls.glconfig.vidWidth * 3 > cls.glconfig.vidHeight * 4 ) {
+		float	xScale = cls.glconfig.vidWidth / 640.0f;
+		float	scale = cls.glconfig.vidHeight / 480.0f;
+
+		x = ( x / xScale ) * scale + ( cls.glconfig.vidWidth - 640.0f * scale ) * 0.5f;
+		w = ( w / xScale ) * scale;
+	}
+
 	if (cinTable[handle].dirty && (cinTable[handle].CIN_WIDTH != cinTable[handle].drawX || cinTable[handle].CIN_HEIGHT != cinTable[handle].drawY)) {
 		int ix, iy, *buf2, *buf3, xm, ym, ll;
                 
